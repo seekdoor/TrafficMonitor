@@ -10,6 +10,9 @@
 #include "PluginManagerDlg.h"
 #include "SetItemOrderDlg.h"
 #include "WindowsSettingHelper.h"
+#include "PluginInfoDlg.h"
+#include "WIC.h"
+#include "SupportedRenderEnums.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -40,6 +43,19 @@ CTrafficMonitorDlg::~CTrafficMonitorDlg()
     }
 
     ::ReleaseDC(NULL, m_desktop_dc);
+}
+
+CTaskBarDlg* CTrafficMonitorDlg::GetTaskbarWindow() const
+{
+    if (IsTaskbarWndValid())
+        return m_tBarDlg;
+    else
+        return nullptr;
+}
+
+CTrafficMonitorDlg* CTrafficMonitorDlg::Instance()
+{
+    return dynamic_cast<CTrafficMonitorDlg*>(theApp.m_pMainWnd);
 }
 
 void CTrafficMonitorDlg::DoDataExchange(CDataExchange* pDX)
@@ -99,6 +115,11 @@ BEGIN_MESSAGE_MAP(CTrafficMonitorDlg, CDialog)
     ON_COMMAND(ID_DISPLAY_SETTINGS, &CTrafficMonitorDlg::OnDisplaySettings)
     ON_WM_LBUTTONUP()
     ON_COMMAND(ID_REFRESH_CONNECTION_LIST, &CTrafficMonitorDlg::OnRefreshConnectionList)
+    ON_MESSAGE(WM_TABLET_QUERYSYSTEMGESTURESTATUS, &CTrafficMonitorDlg::OnTabletQuerysystemgesturestatus)
+    ON_COMMAND(ID_PLUGIN_OPTIONS, &CTrafficMonitorDlg::OnPluginOptions)
+    ON_COMMAND(ID_PLUGIN_DETAIL, &CTrafficMonitorDlg::OnPluginDetail)
+    ON_COMMAND(ID_PLUGIN_OPTIONS_TASKBAR, &CTrafficMonitorDlg::OnPluginOptionsTaksbar)
+    ON_COMMAND(ID_PLUGIN_DETAIL_TASKBAR, &CTrafficMonitorDlg::OnPluginDetailTaksbar)
 END_MESSAGE_MAP()
 
 
@@ -144,17 +165,17 @@ CString CTrafficMonitorDlg::GetMouseTipsInfo()
             CCommon::KBytesToString(theApp.m_total_memory));
         tip_info += temp;
     }
+    if (!skin_layout.GetItem(TDI_CPU_FREQ).show && theApp.m_cpu_freq >= 0)
+    {
+        temp.Format(_T("\r\n%s: %s"), CCommon::LoadText(IDS_CPU_FREQ), CCommon::FreqToString(theApp.m_cpu_freq, theApp.m_main_wnd_data));
+        tip_info += temp;
+    }
 #ifndef WITHOUT_TEMPERATURE
     if (IsTemperatureNeeded())
     {
         if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && !skin_layout.GetItem(TDI_GPU_USAGE).show && theApp.m_gpu_usage >= 0)
         {
             temp.Format(_T("\r\n%s: %d %%"), CCommon::LoadText(IDS_GPU_USAGE), theApp.m_gpu_usage);
-            tip_info += temp;
-        }
-        if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && !skin_layout.GetItem(TDI_CPU_FREQ).show && theApp.m_cpu_freq >= 0)
-        {
-            temp.Format(_T("\r\n%s: %d %%"), CCommon::LoadText(IDS_CPU_FREQ), theApp.m_cpu_freq);
             tip_info += temp;
         }
         if (theApp.m_general_data.IsHardwareEnable(HI_CPU) && !skin_layout.GetItem(TDI_CPU_TEMP).show && theApp.m_cpu_temperature > 0)
@@ -187,19 +208,31 @@ CString CTrafficMonitorDlg::GetMouseTipsInfo()
     //添加插件项目的鼠标提示
     tip_info += theApp.GetPlauginTooltipInfo().c_str();
 
+    //if (IsTaskbarWndValid())
+    //{
+    //    tip_info += L"\r\n";
+    //    tip_info += m_tBarDlg->GetTaskbarDebugString().c_str();
+    //}
+
     return tip_info;
 }
 
 void CTrafficMonitorDlg::SetTransparency()
 {
-    SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    SetLayeredWindowAttributes(0, theApp.m_cfg_data.m_transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    SetTransparency(theApp.m_cfg_data.m_transparency);
 }
 
 void CTrafficMonitorDlg::SetTransparency(int transparency)
 {
     SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    SetLayeredWindowAttributes(0, transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    if (m_skin.IsPNG())
+    {
+        m_skin.SetAlpha(transparency * 255 / 100);
+    }
+    else
+    {
+        SetLayeredWindowAttributes(0, transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    }
 }
 
 void CTrafficMonitorDlg::SetAlwaysOnTop()
@@ -434,8 +467,8 @@ void CTrafficMonitorDlg::IniConnection()
     theApp.m_cfg_data.m_connection_name = GetConnection(m_connection_selected).description_2;
 
     //根据已获取到的连接在菜单中添加相应项目
-    CMenu* select_connection_menu = theApp.m_main_menu.GetSubMenu(0)->GetSubMenu(0);        //设置“选择网络连接”子菜单项
-    IniConnectionMenu(select_connection_menu);      //向“选择网卡”子菜单项添加项目
+    IniConnectionMenu(theApp.m_main_menu.GetSubMenu(0)->GetSubMenu(0));      //向“选择网络连接”子菜单项添加项目
+    IniConnectionMenu(theApp.m_main_menu_plugin.GetSubMenu(0)->GetSubMenu(0));      //向“选择网络连接”子菜单项添加项目
 
     IniTaskBarConnectionMenu();     //初始化任务栏窗口中的“选择网络连接”子菜单项
 
@@ -489,8 +522,9 @@ void CTrafficMonitorDlg::IniConnectionMenu(CMenu* pMenu)
 
 void CTrafficMonitorDlg::IniTaskBarConnectionMenu()
 {
-    CMenu* select_connection_menu = theApp.m_taskbar_menu.GetSubMenu(0)->GetSubMenu(0);     //设置“选择网络连接”子菜单项
-    IniConnectionMenu(select_connection_menu);      //向“选择网卡”子菜单项添加项目
+    //向“选择网络连接”子菜单项添加项目
+    IniConnectionMenu(theApp.m_taskbar_menu.GetSubMenu(0)->GetSubMenu(0));
+    IniConnectionMenu(theApp.m_taskbar_menu_plugin.GetSubMenu(0)->GetSubMenu(0));
 }
 
 void CTrafficMonitorDlg::SetConnectionMenuState(CMenu* pMenu)
@@ -511,13 +545,33 @@ void CTrafficMonitorDlg::CloseTaskBarWnd()
             m_tBarDlg->OnCancel();
         delete m_tBarDlg;
         m_tBarDlg = nullptr;
+        theApp.m_taskbar_data.update_layered_window_error_code = 0;
     }
 }
 
 void CTrafficMonitorDlg::OpenTaskBarWnd()
 {
     m_tBarDlg = new CTaskBarDlg;
-    m_tBarDlg->Create(IDD_TASK_BAR_DIALOG, this);
+
+    CSupportedRenderEnums supported_render_enums{};
+    // 强制初始化theApp.m_is_windows11_taskbar的值
+    CTaskBarDlg::GetShellTrayWndHandleAndSaveWindows11TaskBarExistenceInfoToTheApp();
+    CTaskBarDlg::DisableRenderFeatureIfNecessary(supported_render_enums);
+    auto render_type = supported_render_enums.GetAutoFitEnum();
+    // WS_EX_LAYERED 和 WS_EX_NOREDIRECTIONBITMAP 可以共存，见微软示例代码
+    // https://github.com/microsoft/Windows-classic-samples/blob/7cbd99ac1d2b4a0beffbaba29ea63d024ceff700/Samples/DynamicDPI/cpp/SampleDesktopWindow.cpp#L179
+    // 但是WS_EX_NOREDIRECTIONBITMAP似乎会导致UpdateLayeredWindowIndirect失败
+    switch (render_type)
+    {
+        using namespace DrawCommonHelper;
+    case RenderType::D2D1_WITH_DCOMPOSITION:
+        m_tBarDlg->Create(IDD_TASK_BAR_DIALOG_NOREDIRECTIONBITMAP, this);
+        break;
+    // 包括RenderType::D2D1在内的其他值
+    default:
+        m_tBarDlg->Create(IDD_TASK_BAR_DIALOG, this);
+        break;
+    }
     m_tBarDlg->ShowWindow(SW_SHOW);
     //m_tBarDlg->ShowInfo();
     //IniTaskBarConnectionMenu();
@@ -550,7 +604,6 @@ void CTrafficMonitorDlg::ShowNotifyTip(const wchar_t* title, const wchar_t* mess
     {
         //添加通知栏图标
         AddNotifyIcon();
-        theApp.m_general_data.show_notify_icon = true;
     }
     //显示通知提示
     m_ntIcon.uFlags |= NIF_INFO;
@@ -560,6 +613,14 @@ void CTrafficMonitorDlg::ShowNotifyTip(const wchar_t* title, const wchar_t* mess
     CCommon::WStringCopy(m_ntIcon.szInfoTitle, 64, title);
     ::Shell_NotifyIcon(NIM_MODIFY, &m_ntIcon);
     m_ntIcon.uFlags &= ~NIF_INFO;
+
+    //如果不显示通知区域图标，则在弹出通知的一段时间后删除通知区图标
+    if (!theApp.m_general_data.show_notify_icon)
+    {
+        //延迟一定时间后删除通知区图标
+        KillTimer(DELETE_NOTIFY_ICON_TIMER);
+        SetTimer(DELETE_NOTIFY_ICON_TIMER, 8000, NULL);
+    }
 }
 
 void CTrafficMonitorDlg::UpdateNotifyIconTip()
@@ -661,6 +722,7 @@ void CTrafficMonitorDlg::ApplySettings(COptionsDlg& optionsDlg)
     bool is_alow_out_of_border_changed = (optionsDlg.m_tab1_dlg.m_data.m_alow_out_of_border != theApp.m_main_wnd_data.m_alow_out_of_border);
     bool is_show_notify_icon_changed = (optionsDlg.m_tab3_dlg.m_data.show_notify_icon != theApp.m_general_data.show_notify_icon);
     bool is_connections_hide_changed = (optionsDlg.m_tab3_dlg.m_data.connections_hide.data() != theApp.m_general_data.connections_hide.data());
+    bool d2d_turned_on = (theApp.m_taskbar_data.disable_d2d && !optionsDlg.m_tab2_dlg.m_data.disable_d2d);
 
     theApp.m_main_wnd_data = optionsDlg.m_tab1_dlg.m_data;
     theApp.m_taskbar_data = optionsDlg.m_tab2_dlg.m_data;
@@ -670,6 +732,13 @@ void CTrafficMonitorDlg::ApplySettings(COptionsDlg& optionsDlg)
     CGeneralSettingsDlg::CheckTaskbarDisplayItem();
 
     SetTextFont();
+
+    //打开了D2D渲染后自动开启“背景透明”并关闭“根据任务栏颜色自动设置背景色”
+    if (d2d_turned_on)
+    {
+        theApp.m_taskbar_data.SetTaskabrTransparent(true);
+        theApp.m_taskbar_data.auto_set_background_color = false;
+    }
 
     //CTaskBarDlg::SaveConfig();
     if (IsTaskbarWndValid())
@@ -698,7 +767,7 @@ void CTrafficMonitorDlg::ApplySettings(COptionsDlg& optionsDlg)
     }
 
     //设置获取CPU利用率的方式
-    m_cpu_usage.SetUseCPUTimes(theApp.m_general_data.m_get_cpu_usage_by_cpu_times);
+    m_cpu_usage_helper.SetUseCPUTimes(theApp.m_general_data.cpu_usage_acquire_method != GeneralSettingData::CA_PDH);
 
 #ifndef WITHOUT_TEMPERATURE
     if (is_hardware_monitor_item_changed)
@@ -866,6 +935,69 @@ void CTrafficMonitorDlg::CheckClickedItem(CPoint point)
     }
 }
 
+int CTrafficMonitorDlg::FindSkinIndex(const wstring& skin_name)
+{
+    int skin_selected = 0;
+    for (size_t i{}; i < m_skins.size(); i++)
+    {
+        if (m_skins[i] == skin_name)
+            skin_selected = static_cast<int>(i);
+    }
+    return skin_selected;
+}
+
+void CTrafficMonitorDlg::ApplySkin(int skin_index)
+{
+    if (skin_index < 0 || skin_index >= static_cast<int>(m_skins.size()))
+        return;
+    m_skin_selected = skin_index;
+    theApp.m_cfg_data.m_skin_name = m_skins[m_skin_selected];
+    //获取皮肤布局
+    LoadSkinLayout();
+    //载入背景图片
+    LoadBackGroundImage();
+    //获取皮肤的文字颜色
+    theApp.m_main_wnd_data.specify_each_item_color = m_skin.GetSkinInfo().specify_each_item_color;
+    int i{};
+    for (const auto& item : theApp.m_plugins.AllDisplayItemsWithPlugins())
+    {
+        theApp.m_main_wnd_data.text_colors[item] = m_skin.GetSkinInfo().TextColor(i);
+        i++;
+    }
+    //SetTextColor();
+    //获取皮肤的字体
+    if (theApp.m_general_data.allow_skin_cover_font)
+    {
+        if (!m_skin.GetSkinInfo().font_info.name.IsEmpty())
+        {
+            theApp.m_main_wnd_data.font.name = m_skin.GetSkinInfo().font_info.name;
+            theApp.m_main_wnd_data.font.bold = m_skin.GetSkinInfo().font_info.bold;
+            theApp.m_main_wnd_data.font.italic = m_skin.GetSkinInfo().font_info.italic;
+            theApp.m_main_wnd_data.font.underline = m_skin.GetSkinInfo().font_info.underline;
+            theApp.m_main_wnd_data.font.strike_out = m_skin.GetSkinInfo().font_info.strike_out;
+        }
+        if (m_skin.GetSkinInfo().font_info.size >= MIN_FONT_SIZE && m_skin.GetSkinInfo().font_info.size <= MAX_FONT_SIZE)
+            theApp.m_main_wnd_data.font.size = m_skin.GetSkinInfo().font_info.size;
+        SetTextFont();
+    }
+    //获取项目的显示文本
+    bool cover_str_setting{ !m_skin.GetSkinInfo().display_text.IsInvalid() };
+    if (theApp.m_general_data.allow_skin_cover_text && !m_skin.GetLayoutInfo().no_label && cover_str_setting)
+    {
+        theApp.m_main_wnd_data.disp_str = m_skin.GetSkinInfo().display_text;
+    }
+    SetItemPosition();
+    Invalidate(FALSE);      //更换皮肤后立即刷新窗口信息
+    //重新设置WS_EX_LAYERED样式，以解决在png皮肤和bmp皮肤之间切换时显示不正常的问题
+    //清除窗口的分层样式
+    SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
+    //重新设置透明度
+    SetTransparency();
+
+    theApp.SaveConfig();
+
+}
+
 bool CTrafficMonitorDlg::IsTemperatureNeeded() const
 {
     //判断是否需要从OpenHardwareMonitor获取信息。
@@ -923,6 +1055,20 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
     theApp.InitMenuResourse();
     //theApp.UpdateTaskbarWndMenu();
 
+    //初始化皮肤
+    CCommon::GetFiles((theApp.m_skin_path + L"\\*").c_str(), [&](const wstring& file_name)
+        {
+            wstring file_name1 = L'\\' + file_name;
+            if (CCommon::IsFolder(theApp.m_skin_path + file_name1))
+                m_skins.push_back(file_name1);
+        });
+    if (m_skins.empty())
+        m_skins.push_back(L"");
+    m_skin_selected = FindSkinIndex(theApp.m_cfg_data.m_skin_name);
+
+    //根据当前选择的皮肤获取布局数据
+    LoadSkinLayout();
+
     //设置窗口透明度
     SetTransparency();
 
@@ -969,25 +1115,6 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
     //m_timer.CreateTimer((DWORD_PTR)this, theApp.m_general_data.monitor_time_span, MonitorThreadCallback);
 
 
-    //初始化皮肤
-    CCommon::GetFiles((theApp.m_skin_path + L"\\*").c_str(), [&](const wstring& file_name)
-        {
-            wstring file_name1 = L'\\' + file_name;
-            if (CCommon::IsFolder(theApp.m_skin_path + file_name1))
-                m_skins.push_back(file_name1);
-        });
-    if (m_skins.empty())
-        m_skins.push_back(L"");
-    m_skin_selected = 0;
-    for (unsigned int i{}; i < m_skins.size(); i++)
-    {
-        if (m_skins[i] == theApp.m_cfg_data.m_skin_name)
-            m_skin_selected = i;
-    }
-
-    //根据当前选择的皮肤获取布局数据
-    LoadSkinLayout();
-
     //初始化窗口位置
     SetItemPosition();
     if (theApp.m_cfg_data.m_position_x != -1 && theApp.m_cfg_data.m_position_y != -1)
@@ -1009,7 +1136,7 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
     m_tool_tips.AddTool(this, _T(""));
 
     //设置获取CPU利用率的方式
-    m_cpu_usage.SetUseCPUTimes(theApp.m_general_data.m_get_cpu_usage_by_cpu_times);
+    m_cpu_usage_helper.SetUseCPUTimes(theApp.m_general_data.cpu_usage_acquire_method != GeneralSettingData::CA_PDH);
 
     //如果程序启动时设置了隐藏主窗口，或窗口的位置在左上角，则先将其不透明度设为0
     if (theApp.m_cfg_data.m_hide_main_window || (theApp.m_cfg_data.m_position_x == 0 && theApp.m_cfg_data.m_position_y == 0))
@@ -1031,7 +1158,9 @@ HCURSOR CTrafficMonitorDlg::OnQueryDragIcon()
 //计算指定秒数的时间内Monitor定时器会触发的次数
 static int GetMonitorTimerCount(int second)
 {
-    return second * 1000 / theApp.m_general_data.monitor_time_span;
+    int count = second * 1000 / theApp.m_general_data.monitor_time_span;
+    if (count <= 0) count = 1;
+    return count;
 }
 
 
@@ -1169,7 +1298,6 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         CCommon::WriteLog(info, theApp.m_log_path.c_str());
     }
 
-
     if (pThis->m_monitor_time_cnt % GetMonitorTimerCount(3) == GetMonitorTimerCount(3) - 1)
     {
         //重新获取当前连接数量
@@ -1215,11 +1343,27 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         }
     }
 
-    ////只有主窗口和任务栏窗口至少有一个显示时才执行下面的处理
-    //if (!theApp.m_cfg_data.m_hide_main_window || theApp.m_cfg_data.m_show_task_bar_wnd)
-    //{
+    bool lite_version = false;
+#ifdef WITHOUT_TEMPERATURE
+    lite_version = true;
+#endif
+
+    bool cpu_usage_acquired = false;
+    bool cpu_freq_acquired = false;
+
     //获取CPU使用率
-    theApp.m_cpu_usage = pThis->m_cpu_usage.GetCPUUsage();
+    if (lite_version || theApp.m_general_data.cpu_usage_acquire_method != GeneralSettingData::CA_HARDWARE_MONITOR || !theApp.m_general_data.IsHardwareEnable(HI_CPU))
+    {
+        theApp.m_cpu_usage = pThis->m_cpu_usage_helper.GetCPUUsage();
+        cpu_usage_acquired = true;
+    }
+
+    //获取CPU频率
+    //if (lite_version || is_arm64ec || !theApp.m_general_data.IsHardwareEnable(HI_CPU))
+    //{
+    if (pThis->m_cpu_freq_helper.GetCpuFreq(theApp.m_cpu_freq))
+        cpu_freq_acquired = true;
+    //}
 
     //获取内存利用率
     MEMORYSTATUSEX statex;
@@ -1258,7 +1402,10 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         //theApp.m_hdd_temperature = theApp.m_pMonitor->HDDTemperature();
         theApp.m_main_board_temperature = theApp.m_pMonitor->MainboardTemperature();
         theApp.m_gpu_usage = theApp.m_pMonitor->GpuUsage();
-        theApp.m_cpu_freq = theApp.m_pMonitor->CpuFreq();
+        if (!cpu_freq_acquired)
+            theApp.m_cpu_freq = theApp.m_pMonitor->CpuFreq();
+        if (!cpu_usage_acquired)
+            theApp.m_cpu_usage = theApp.m_pMonitor->CpuUsage();
         //获取CPU温度
         if (!theApp.m_pMonitor->AllCpuTemperature().empty())
         {
@@ -1345,7 +1492,6 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         }
     }
 
-    //}
     pThis->m_monitor_time_cnt++;
 
     //发送监控信息更新消息
@@ -1356,6 +1502,7 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
 
 void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 {
+
     // TODO: 在此添加消息处理程序代码和/或调用默认值
     if (nIDEvent == MONITOR_TIMER)
     {
@@ -1365,6 +1512,7 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 
     if (nIDEvent == MAIN_TIMER)
     {
+        m_timer_cnt++;
         if (m_first_start)      //这个if语句在程序启动后1秒执行
         {
             //将设置窗口置顶的处理放在这里是用于解决
@@ -1431,6 +1579,10 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
                 SetAlwaysOnTop();       //每5分钟执行一次设置窗口置顶
             }
         }
+        else
+        {
+            m_tool_tips.Pop();          //显示了右键菜单时，不显示鼠标提示
+        }
 
         if (m_timer_cnt % 30 == 26)     //每隔30秒钟检测一次窗口位置，当窗口位置发生变化时保存设置
         {
@@ -1460,19 +1612,19 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
                     CloseTaskBarWnd();
                     OpenTaskBarWnd();
                     m_insert_to_taskbar_cnt++;
-                    if (m_insert_to_taskbar_cnt == MAX_INSERT_TO_TASKBAR_CNT)
+                    if (m_tBarDlg->GetCannotInsertToTaskBar() && m_insert_to_taskbar_cnt >= WARN_INSERT_TO_TASKBAR_CNT)
                     {
-                        if (m_tBarDlg->GetCannotInsertToTaskBar() && m_cannot_intsert_to_task_bar_warning)      //确保提示信息只弹出一次
+                        //写入错误日志
+                        CString info;
+                        info.LoadString(IDS_CONNOT_INSERT_TO_TASKBAR_ERROR_LOG);
+                        info.Replace(_T("<%cnt%>"), CCommon::IntToString(m_insert_to_taskbar_cnt));
+                        info.Replace(_T("<%error_code%>"), CCommon::IntToString(m_tBarDlg->GetErrorCode()));
+                        CCommon::WriteLog(info, theApp.m_log_path.c_str());
+                        if (m_cannot_insert_to_task_bar_warning)      //确保提示信息只弹出一次
                         {
-                            //写入错误日志
-                            CString info;
-                            info.LoadString(IDS_CONNOT_INSERT_TO_TASKBAR_ERROR_LOG);
-                            info.Replace(_T("<%cnt%>"), CCommon::IntToString(m_insert_to_taskbar_cnt));
-                            info.Replace(_T("<%error_code%>"), CCommon::IntToString(m_tBarDlg->GetErrorCode()));
-                            CCommon::WriteLog(info, theApp.m_log_path.c_str());
                             //弹出错误信息
+                            m_cannot_insert_to_task_bar_warning = false;
                             MessageBox(CCommon::LoadText(IDS_CONNOT_INSERT_TO_TASKBAR, CCommon::IntToString(m_tBarDlg->GetErrorCode())), NULL, MB_ICONWARNING);
-                            m_cannot_intsert_to_task_bar_warning = false;
                         }
                     }
                 }
@@ -1568,10 +1720,10 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
                 theApp.SaveConfig();
                 restart_taskbar_dlg = true;
             }
-            bool is_taskbar_transparent{ CTaskbarDefaultStyle::IsTaskbarTransparent(theApp.m_taskbar_data) };
+            bool is_taskbar_transparent{ theApp.m_taskbar_data.IsTaskbarTransparent()};
             if (!is_taskbar_transparent)
             {
-                CTaskbarDefaultStyle::SetTaskabrTransparent(false, theApp.m_taskbar_data);
+                theApp.m_taskbar_data.SetTaskabrTransparent(false);
                 restart_taskbar_dlg = true;
             }
             if (restart_taskbar_dlg && IsTaskbarWndValid())
@@ -1629,6 +1781,12 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
                 }
             }
 
+            //根据深色/浅色模式自动切换皮肤
+            if (theApp.m_win_version.IsWindows10OrLater() && theApp.m_cfg_data.skin_auto_adapt)
+            {
+                int skin_index = FindSkinIndex(light_mode ? theApp.m_cfg_data.skin_name_light_mode : theApp.m_cfg_data.skin_name_dark_mode);
+                ApplySkin(skin_index);
+            }
         }
 
         //根据任务栏颜色自动设置任务栏窗口背景色
@@ -1649,9 +1807,9 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
             COLORREF color = ::GetPixel(m_desktop_dc, pointx, pointy);        //取任务栏窗口左侧1像素处的颜色作为背景色
             if (!CCommon::IsColorSimilar(color, theApp.m_taskbar_data.back_color) && (/*CWindowsSettingHelper::IsWindows10LightTheme() ||*/ color != 0))
             {
-                bool is_taskbar_transparent{ CTaskbarDefaultStyle::IsTaskbarTransparent(theApp.m_taskbar_data) };
+                bool is_taskbar_transparent{ theApp.m_taskbar_data.IsTaskbarTransparent()};
                 theApp.m_taskbar_data.back_color = color;
-                CTaskbarDefaultStyle::SetTaskabrTransparent(is_taskbar_transparent, theApp.m_taskbar_data);
+                theApp.m_taskbar_data.SetTaskabrTransparent(is_taskbar_transparent);
                 if (is_taskbar_transparent)
                     m_tBarDlg->ApplyWindowTransparentColor();
             }
@@ -1677,7 +1835,7 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 
         UpdateNotifyIconTip();
 
-        m_timer_cnt++;
+
     }
 
     if (nIDEvent == DELAY_TIMER)
@@ -1690,9 +1848,33 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
     {
         if (IsTaskbarWndValid())
         {
+            ++m_taskbar_timer_cnt;
+
+            //启动时就隐藏主窗体的情况下，无法收到dpichange消息，故需要手动检查
+            //每次100ms*10执行一次屏幕DPI检查，并且尽可能少的检查操作系统版本
+            if (m_taskbar_timer_cnt % 10 == 0 && theApp.m_win_version.IsWindows8Point1OrLater())
+            {
+                CTaskBarDlg::CheckWindowMonitorDPIAndHandle(*m_tBarDlg, [p_TaskBarDlg = m_tBarDlg](UINT new_dpi_x, UINT new_dpi_y)
+                                                            {
+                                                                // auto s_dpi = std::to_string(new_dpi_x);
+                                                                // s_dpi += '\n';
+                                                                // TRACE(s_dpi.c_str());
+                                                                //考虑到任务栏窗口可能和主窗口不在同一个屏幕上，dpi可能不同
+                                                                //设置DPI并刷新窗口
+                                                                p_TaskBarDlg->SetDPI(new_dpi_x);
+                                                                p_TaskBarDlg->SetTextFont();
+                                                                p_TaskBarDlg->CalculateWindowSize(); });
+            }
+
             m_tBarDlg->AdjustWindowPos();
             m_tBarDlg->Invalidate(FALSE);
         }
+    }
+
+    if (nIDEvent == DELETE_NOTIFY_ICON_TIMER)
+    {
+        DeleteNotifyIcon();
+        KillTimer(DELETE_NOTIFY_ICON_TIMER);
     }
 
     CDialog::OnTimer(nIDEvent);
@@ -1703,9 +1885,11 @@ void CTrafficMonitorDlg::OnRButtonUp(UINT nFlags, CPoint point)
 {
     // TODO: 在此添加消息处理程序代码和/或调用默认值
     CheckClickedItem(point);
-    if (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr)
+    bool is_plugin_item_clicked = (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr);
+    ITMPlugin* plugin{};
+    if (is_plugin_item_clicked)
     {
-        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+        plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
         if (plugin != nullptr && plugin->GetAPIVersion() >= 3)
         {
             if (m_clicked_item.plugin_item->OnMouseEvent(IPluginItem::MT_RCLICKED, point.x, point.y, (void*)GetSafeHwnd(), 0) != 0)
@@ -1713,7 +1897,7 @@ void CTrafficMonitorDlg::OnRButtonUp(UINT nFlags, CPoint point)
         }
     }
     //设置点击鼠标右键弹出菜单
-    CMenu* pContextMenu = theApp.m_main_menu.GetSubMenu(0); //获取第一个弹出菜单，所以第一个菜单必须有子菜单
+    CMenu* pContextMenu = (is_plugin_item_clicked ? theApp.m_main_menu_plugin.GetSubMenu(0) : theApp.m_main_menu.GetSubMenu(0));
     CPoint point1;  //定义一个用于确定光标位置的位置
     GetCursorPos(&point1);  //获取当前光标的位置，以便使得菜单可以跟随光标
     //设置默认菜单项
@@ -1738,6 +1922,22 @@ void CTrafficMonitorDlg::OnRButtonUp(UINT nFlags, CPoint point)
         pContextMenu->SetDefaultItem(-1);
         break;
     }
+
+    if (plugin != nullptr)
+    {
+        //将右键菜单中插件菜单的显示文本改为插件名
+        pContextMenu->ModifyMenu(17, MF_BYPOSITION, 17, plugin->GetInfo(ITMPlugin::TMI_NAME));
+        //获取插件图标
+        HICON plugin_icon{};
+        if (plugin->GetAPIVersion() >= 5)
+            plugin_icon = (HICON)plugin->GetPluginIcon();
+        //设置插件图标
+        if (plugin_icon != nullptr)
+            CMenuIcon::AddIconToMenuItem(pContextMenu->GetSafeHmenu(), 17, TRUE, plugin_icon);
+    }
+    //更新插件子菜单
+    theApp.UpdatePluginMenu(&theApp.m_main_menu_plugin_sub_menu, plugin, 2);
+
     pContextMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point1.x, point1.y, this); //在指定位置显示弹出菜单
 
     CDialog::OnRButtonUp(nFlags, point1);
@@ -1747,8 +1947,23 @@ void CTrafficMonitorDlg::OnRButtonUp(UINT nFlags, CPoint point)
 void CTrafficMonitorDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
     // TODO: 在此添加消息处理程序代码和/或调用默认值
+    CheckClickedItem(point);
+    bool plugin_item_clicked = false;   //是否响应了插件项目的左键点击事件
+    if (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr)      //点击的是否为插件项目
+    {
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+        if (plugin != nullptr && plugin->GetAPIVersion() >= 3)
+        {
+            if (m_clicked_item.plugin_item->OnMouseEvent(IPluginItem::MT_LCLICKED, point.x, point.y, (void*)GetSafeHwnd(), 0) != 0)
+            {
+                plugin_item_clicked = true;
+                Invalidate();
+            }
+        }
+    }
+
     //在未锁定窗口位置时允许通过点击窗口内部来拖动窗口
-    if (!theApp.m_main_wnd_data.m_lock_window_pos)
+    if (!theApp.m_main_wnd_data.m_lock_window_pos && !plugin_item_clicked)
         PostMessage(WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM(point.x, point.y));
     CDialog::OnLButtonDown(nFlags, point);
 }
@@ -1871,8 +2086,24 @@ BOOL CTrafficMonitorDlg::OnCommand(WPARAM wParam, LPARAM lParam)
     if (uMsg == ID_CMD_TEST)
     {
         CTest::TestCommand();
+        //ShowNotifyTip(CCommon::LoadText(_T("TrafficMonitor "), IDS_NOTIFY), _T("测试通知"));
+
     }
 #endif // DEBUG
+    //选择了插件命令
+    if (uMsg >= ID_PLUGIN_COMMAND_START && uMsg <= ID_PLUGIN_COMMAND_MAX)
+    {
+        int index = uMsg - ID_PLUGIN_COMMAND_START;
+        if (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr)
+        {
+            ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+            if (plugin != nullptr && plugin->GetAPIVersion() >= 5)
+            {
+                plugin->OnPluginCommand(index, (void*)GetSafeHwnd(), nullptr);
+            }
+        }
+    }
+
 
     return CDialog::OnCommand(wParam, lParam);
     }
@@ -1894,8 +2125,8 @@ void CTrafficMonitorDlg::OnInitMenu(CMenu* pMenu)
     pMenu->CheckMenuItem(ID_ALOW_OUT_OF_BORDER, MF_BYCOMMAND | (theApp.m_main_wnd_data.m_alow_out_of_border ? MF_CHECKED : MF_UNCHECKED));
 
     //设置“选择连接”子菜单项中各单选项的选择状态
-    CMenu* select_connection_menu = theApp.m_main_menu.GetSubMenu(0)->GetSubMenu(0);
-    SetConnectionMenuState(select_connection_menu);
+    SetConnectionMenuState(theApp.m_main_menu.GetSubMenu(0)->GetSubMenu(0));
+    SetConnectionMenuState(theApp.m_main_menu_plugin.GetSubMenu(0)->GetSubMenu(0));
 
     //设置“窗口不透明度”子菜单下各单选项的选择状态
     switch (theApp.m_cfg_data.m_transparency)
@@ -1916,6 +2147,17 @@ void CTrafficMonitorDlg::OnInitMenu(CMenu* pMenu)
 
     pMenu->EnableMenuItem(ID_CHECK_UPDATE, MF_BYCOMMAND | (theApp.IsCheckingForUpdate() ? MF_GRAYED : MF_ENABLED));
 
+    //设置插件命令的勾选状态
+    ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+    if (plugin != nullptr && plugin->GetAPIVersion() >= 5)
+    {
+        for (int i = ID_PLUGIN_COMMAND_START; i <= ID_PLUGIN_COMMAND_MAX; i++)
+        {
+            bool checked = (plugin->IsCommandChecked(i) != 0);
+            pMenu->CheckMenuItem(i, MF_BYCOMMAND | (checked ? MF_CHECKED : MF_UNCHECKED));
+        }
+    }
+
     //pMenu->SetDefaultItem(ID_NETWORK_INFO);
 }
 
@@ -1930,6 +2172,19 @@ BOOL CTrafficMonitorDlg::PreTranslateMessage(MSG* pMsg)
     if (theApp.m_main_wnd_data.show_tool_tip && m_tool_tips.GetSafeHwnd())
     {
         m_tool_tips.RelayEvent(pMsg);
+    }
+
+    if (pMsg->message == WM_KEYDOWN)
+    {
+        bool ctrl = (GetKeyState(VK_CONTROL) & 0x80);
+        bool shift = (GetKeyState(VK_SHIFT) & 0x8000);
+        bool alt = (GetKeyState(VK_MENU) & 0x8000);
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+        if (plugin != nullptr && plugin->GetAPIVersion() >= 4)
+        {
+            if (m_clicked_item.plugin_item->OnKeboardEvent(pMsg->wParam, ctrl, shift, alt, (void*)GetSafeHwnd(), IPluginItem::KF_TASKBAR_WND) != 0)
+                return TRUE;
+        }
     }
 
     return CDialog::PreTranslateMessage(pMsg);
@@ -2233,44 +2488,7 @@ void CTrafficMonitorDlg::OnChangeSkin()
     skinDlg.m_pFont = &m_font;
     if (skinDlg.DoModal() == IDOK)
     {
-        m_skin_selected = skinDlg.m_skin_selected;
-        theApp.m_cfg_data.m_skin_name = m_skins[m_skin_selected];
-        //获取皮肤布局
-        LoadSkinLayout();
-        //载入背景图片
-        LoadBackGroundImage();
-        //获取皮肤的文字颜色
-        theApp.m_main_wnd_data.specify_each_item_color = skinDlg.GetSkinData().GetSkinInfo().specify_each_item_color;
-        int i{};
-        for (const auto& item : theApp.m_plugins.AllDisplayItemsWithPlugins())
-        {
-            theApp.m_main_wnd_data.text_colors[item] = skinDlg.GetSkinData().GetSkinInfo().TextColor(i);
-            i++;
-        }
-        //SetTextColor();
-        //获取皮肤的字体
-        if (theApp.m_general_data.allow_skin_cover_font)
-        {
-            if (!skinDlg.GetSkinData().GetSkinInfo().font_info.name.IsEmpty())
-            {
-                theApp.m_main_wnd_data.font.name = skinDlg.GetSkinData().GetSkinInfo().font_info.name;
-                theApp.m_main_wnd_data.font.bold = skinDlg.GetSkinData().GetSkinInfo().font_info.bold;
-                theApp.m_main_wnd_data.font.italic = skinDlg.GetSkinData().GetSkinInfo().font_info.italic;
-                theApp.m_main_wnd_data.font.underline = skinDlg.GetSkinData().GetSkinInfo().font_info.underline;
-                theApp.m_main_wnd_data.font.strike_out = skinDlg.GetSkinData().GetSkinInfo().font_info.strike_out;
-            }
-            if (skinDlg.GetSkinData().GetSkinInfo().font_info.size >= MIN_FONT_SIZE && skinDlg.GetSkinData().GetSkinInfo().font_info.size <= MAX_FONT_SIZE)
-                theApp.m_main_wnd_data.font.size = skinDlg.GetSkinData().GetSkinInfo().font_info.size;
-            SetTextFont();
-        }
-        //获取项目的显示文本
-        if (theApp.m_general_data.allow_skin_cover_text && !skinDlg.GetSkinData().GetLayoutInfo().no_label)
-        {
-            theApp.m_main_wnd_data.disp_str = skinDlg.GetSkinData().GetSkinInfo().display_text;
-        }
-        SetItemPosition();
-        Invalidate(FALSE);      //更换皮肤后立即刷新窗口信息
-        theApp.SaveConfig();
+        ApplySkin(skinDlg.m_skin_selected);
     }
 }
 
@@ -2338,7 +2556,6 @@ void CTrafficMonitorDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 
 void CTrafficMonitorDlg::OnOptions()
 {
-    // TODO: 在此添加命令处理程序代码
     _OnOptions(0);
 }
 
@@ -2346,26 +2563,6 @@ void CTrafficMonitorDlg::OnOptions()
 //通过任务栏窗口的右键菜单打开“选项”对话框
 void CTrafficMonitorDlg::OnOptions2()
 {
-    // TODO: 在此添加命令处理程序代码
-    //判断任务栏窗口中点击的项目是否是插件项目
-    if (IsTaskbarWndValid() && m_tBarDlg->GetClickedItem().is_plugin)
-    {
-        //找到对应的插件
-        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_tBarDlg->GetClickedItem().plugin_item);
-        if (plugin != nullptr)
-        {
-            //显示插件的选项设置
-            auto rtn = plugin->ShowOptionsDialog(GetSafeHwnd());
-            if (rtn == ITMPlugin::OR_OPTION_CHANGED)    //选项设置有更改，重新打开任务栏窗口
-            {
-                CloseTaskBarWnd();
-                OpenTaskBarWnd();
-            }
-            if (rtn != ITMPlugin::OR_OPTION_NOT_PROVIDED)
-                return;
-        }
-    }
-
     _OnOptions(1);
 }
 
@@ -2417,8 +2614,8 @@ void CTrafficMonitorDlg::OnCheckUpdate()
 afx_msg LRESULT CTrafficMonitorDlg::OnTaskbarMenuPopedUp(WPARAM wParam, LPARAM lParam)
 {
     //设置“选择连接”子菜单项中各单选项的选择状态
-    CMenu* select_connection_menu = theApp.m_taskbar_menu.GetSubMenu(0)->GetSubMenu(0);
-    SetConnectionMenuState(select_connection_menu);
+    SetConnectionMenuState(theApp.m_taskbar_menu.GetSubMenu(0)->GetSubMenu(0));
+    SetConnectionMenuState(theApp.m_taskbar_menu_plugin.GetSubMenu(0)->GetSubMenu(0));
     return 0;
 }
 
@@ -2479,8 +2676,11 @@ afx_msg LRESULT CTrafficMonitorDlg::OnDpichanged(WPARAM wParam, LPARAM lParam)
 {
     int dpi = LOWORD(wParam);
     theApp.SetDPI(dpi);
-    if (IsTaskbarWndValid())
+    //当系统版本小于Windows 8.1时使用原来的行为
+    if (IsTaskbarWndValid() && !theApp.m_win_version.IsWindows8Point1OrLater())
     {
+        //为任务栏窗口重新指定DPI
+        m_tBarDlg->SetDPI(dpi);
         //根据新的DPI重新设置任务栏窗口字体
         m_tBarDlg->SetTextFont();
     }
@@ -2597,16 +2797,16 @@ void CTrafficMonitorDlg::OnDisplaySettings()
 void CTrafficMonitorDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
     // TODO: 在此添加消息处理程序代码和/或调用默认值
-    CheckClickedItem(point);
-    if (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr)
-    {
-        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
-        if (plugin != nullptr && plugin->GetAPIVersion() >= 3)
-        {
-            if (m_clicked_item.plugin_item->OnMouseEvent(IPluginItem::MT_LCLICKED, point.x, point.y, (void*)GetSafeHwnd(), 0) != 0)
-                return;
-        }
-    }
+    //CheckClickedItem(point);
+    //if (m_clicked_item.is_plugin && m_clicked_item.plugin_item != nullptr)
+    //{
+    //    ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+    //    if (plugin != nullptr && plugin->GetAPIVersion() >= 3)
+    //    {
+    //        if (m_clicked_item.plugin_item->OnMouseEvent(IPluginItem::MT_LCLICKED, point.x, point.y, (void*)GetSafeHwnd(), 0) != 0)
+    //            return;
+    //    }
+    //}
 
     CDialog::OnLButtonUp(nFlags, point);
 }
@@ -2616,4 +2816,82 @@ void CTrafficMonitorDlg::OnRefreshConnectionList()
 {
     IniConnection();
 
+}
+
+
+afx_msg LRESULT CTrafficMonitorDlg::OnTabletQuerysystemgesturestatus(WPARAM wParam, LPARAM lParam)
+{
+    return 0;
+}
+
+
+void CTrafficMonitorDlg::OnPluginOptions()
+{
+    if (m_clicked_item.is_plugin)
+    {
+        //找到对应的插件
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+        if (plugin != nullptr)
+        {
+            //显示插件的选项设置
+            auto rtn = plugin->ShowOptionsDialog(GetSafeHwnd());
+            if (rtn == ITMPlugin::OR_OPTION_NOT_PROVIDED)
+                MessageBox(CCommon::LoadText(IDS_PLUGIN_NO_OPTIONS_INFO), nullptr, MB_ICONINFORMATION | MB_OK);
+        }
+    }
+}
+
+
+void CTrafficMonitorDlg::OnPluginDetail()
+{
+    if (m_clicked_item.is_plugin)
+    {
+        //找到对应的插件
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_clicked_item.plugin_item);
+        if (plugin != nullptr)
+        {
+            int index = theApp.m_plugins.GetPluginIndex(plugin);
+            CPluginInfoDlg dlg(index);
+            dlg.DoModal();
+        }
+    }
+}
+
+
+void CTrafficMonitorDlg::OnPluginOptionsTaksbar()
+{
+    //判断任务栏窗口中点击的项目是否是插件项目
+    if (IsTaskbarWndValid() && m_tBarDlg->GetClickedItem().is_plugin)
+    {
+        //找到对应的插件
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_tBarDlg->GetClickedItem().plugin_item);
+        if (plugin != nullptr)
+        {
+            //显示插件的选项设置
+            auto rtn = plugin->ShowOptionsDialog(GetSafeHwnd());
+            if (rtn == ITMPlugin::OR_OPTION_CHANGED)    //选项设置有更改，重新打开任务栏窗口
+            {
+                CloseTaskBarWnd();
+                OpenTaskBarWnd();
+            }
+            if (rtn == ITMPlugin::OR_OPTION_NOT_PROVIDED)
+                MessageBox(CCommon::LoadText(IDS_PLUGIN_NO_OPTIONS_INFO), nullptr, MB_ICONINFORMATION | MB_OK);
+        }
+    }
+}
+
+
+void CTrafficMonitorDlg::OnPluginDetailTaksbar()
+{
+    if (IsTaskbarWndValid() && m_tBarDlg->GetClickedItem().is_plugin)
+    {
+        //找到对应的插件
+        ITMPlugin* plugin = theApp.m_plugins.GetPluginByItem(m_tBarDlg->GetClickedItem().plugin_item);
+        if (plugin != nullptr)
+        {
+            int index = theApp.m_plugins.GetPluginIndex(plugin);
+            CPluginInfoDlg dlg(index);
+            dlg.DoModal();
+        }
+    }
 }
