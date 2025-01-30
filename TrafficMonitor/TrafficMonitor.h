@@ -17,6 +17,9 @@
 #include <map>
 #include "OpenHardwareMonitor/OpenHardwareMonitorApi.h"
 #include "PluginManager.h"
+#include "Nullable.hpp"
+#include "TaskBarDlgDrawCommon.h"
+#include "DllFunctions.h"
 
 // CTrafficMonitorApp:
 // 有关此类的实现，请参阅 TrafficMonitor.cpp
@@ -82,11 +85,15 @@ public:
     HICON m_notify_icons[MAX_NOTIFY_ICON];
 
     CTaskbarDefaultStyle m_taskbar_default_style;
-
     CPluginManager m_plugins;
+    CDllFunctions m_dll_functions;
 
-    CMenu m_main_menu;
-    CMenu m_taskbar_menu;
+    CMenu m_main_menu;          //主窗口右键菜单
+    CMenu m_main_menu_plugin;   //右击主窗口插件区域的右键菜单
+    CMenu m_main_menu_plugin_sub_menu;
+    CMenu m_taskbar_menu;       //任务栏窗口右键菜单
+    CMenu m_taskbar_menu_plugin;    //右击任务栏窗口插件区域的右键菜单
+    CMenu m_taskbar_menu_plugin_sub_menu;
 
 #ifndef WITHOUT_TEMPERATURE
     //OpenHardwareMonitor 接口的指针
@@ -95,6 +102,7 @@ public:
 
     CCriticalSection m_minitor_lib_critical;        //用于访问OpenHardwareMonitor进行线程同步的临界区对象
     //CCriticalSection m_lftable_critical;            //用于访问LfTable2进行线程同步的临界区对象
+    CLazyConstructable<class CTaskBarDlgDrawCommonSupport> m_d2d_taskbar_draw_common_support{}; // 当使用D2D渲染时自动初始化的全局依赖
 
 public:
     CTrafficMonitorApp();
@@ -148,6 +156,10 @@ public:
 
     void SendSettingsToPlugin();    //向所有插件发送当前的选项设置
 
+    //更新插件子菜单
+    //plugin_cmd_start_index: 插件命令在菜单中的起始位置
+    static void UpdatePluginMenu(CMenu* pMenu, ITMPlugin* plugin, int plugin_cmd_start_index);
+
 private:
     //int m_no_multistart_warning_time{};       //用于设置在开机后多长时间内不弹出“已经有一个程序正在运行”的警告提示
     bool m_no_multistart_warning{};         //如果为false，则永远都不会弹出“已经有一个程序正在运行”的警告提示
@@ -157,6 +169,8 @@ private:
     bool m_checking_update{ false };        //是否正在检查更新
 
     std::map<UINT, HICON> m_menu_icons;      //菜单图标资源。key是图标资源的ID，vlaue是图标的句柄
+
+    ULONG_PTR m_gdiplusToken{};
 
 // 重写
 public:
