@@ -1,18 +1,24 @@
-﻿<version>1.83</version>
-<GitHub>
-	<link>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.83/TrafficMonitor_V1.83_x86.zip</link>
-	<link_x64>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.83/TrafficMonitor_V1.83_x64.zip</link_x64>
-	<link_without_temperature>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.83/TrafficMonitor_V1.83_x86_Lite.zip</link_without_temperature>
-	<link_without_temperature_x64>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.83/TrafficMonitor_V1.83_x64_Lite.zip</link_without_temperature_x64>
-</GitHub>
-<Gitee>
-	<link>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958690/download/TrafficMonitor_V1.83_x86.zip</link>
-	<link_x64>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958689/download/TrafficMonitor_V1.83_x64.zip</link_x64>
-	<link_without_temperature>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958687/download/TrafficMonitor_V1.83_x86_Lite.zip</link_without_temperature>
-	<link_without_temperature_x64>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958688/download/TrafficMonitor_V1.83_x64_Lite.zip</link_without_temperature_x64>
-</Gitee>
-<update_contents>
-	<contents_zh_cn>修正当已经存在一个开机自启动的任务计划时，无法设置开机自启动的问题，\n新增当已经存在TrafficMonitor进程时启动程序，弹出“程序已经在运行”对话框。\n鼠标提示中新增插件信息的显示。\n修正插件被禁用后仍然会被加载的问题。\n任务栏中的插件项目支持自由排序。\n选项设置中新增可以选择要在“网络连接列表”中显示的网络的功能。\n新增显示总网速的功能。\n新增在任务栏中显示网速占用图的功能。\n修正硬件监控中有多个名称相同的硬盘时只能显示一个硬盘的问题。\n优化任务栏窗口横向滚动图的显示效果。\n任务栏窗口右键菜单中的“显示设置”由菜单改为对话框形式。\n“选择网络连接”菜单中添加“刷新网络连接列表”命令。\n修正几处导致程序崩溃的问题。</contents_zh_cn>
-	<contents_en>Fixed the problem that when there is already a task plan of auto-run, the auto-run at start up will be failed to set.\nAdded the "Program is already running" dialog box at the program is started when there is already a TrafficMonitor process running.\nAdded the plug-in information in the mouse tool tips.\nFixed an issue where plugins could still be loaded if they were disabled.\nAdded the support of free sorting of plugin items in the taskbar.\nAdded the function to select the network connections to be displayed in the "Network Connection List" in the option settings.\nAdded the function of displaying the total network speed.\nAdded the function of displaying the network speed graph in the taskbar.\nFixed the problem that only one hard disk can be displayed when there are multiple hard disks with the same name in the hardware monitor.\nOptimize the display effect of the resource usage graph in plot mode of the taskbar window.\nChange the "Display Settings" in the taskbar window context menu from menu to dialog box.\nAdded "Refresh connection list" command to "Select Network Connections" menu.\nFixed some crashes.\n</contents_en>
-	<contents_zh_tw>修正當已經存在一個開機自啟動的任務計劃時，無法設定開機自啟動的問題，\n新增當已經存在TrafficMonitor程序時啟動程式，彈出“程式已經在執行”對話方塊。\n滑鼠提示中新增外掛資訊的顯示。\n修正外掛被禁用後仍然會被載入的問題。\n工作列中的外掛專案支援自由排序。\n選項設定中新增可以選擇要在“網路連線列表”中顯示的網路的功能。\n新增顯示總網速的功能。\n新增在工作列中顯示網速佔用圖的功能。\n修正硬體監控中有多個名稱相同的硬碟時只能顯示一個硬碟的問題。\n最佳化工作列視窗橫向滾動圖的顯示效果。\n工作列視窗右鍵選單中的“顯示設定”由選單改為對話方塊形式。\n“選擇網路連線”選單中新增“重新整理網路連線列表”命令。\n修正幾處導致程式崩潰的問題。</contents_zh_tw>
-</update_contents>
+﻿<root>
+	<version>1.85.1</version>
+	<GitHub>
+		<link>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x86.zip</link>
+		<link_x64>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x64.zip</link_x64>
+		<link_arm64ec>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_arm64ec.zip</link_arm64ec>
+		<link_without_temperature>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x86_Lite.zip</link_without_temperature>
+		<link_without_temperature_x64>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x64_Lite.zip</link_without_temperature_x64>
+		<link_without_temperature_arm64ec>https://github.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_arm64ec_Lite.zip</link_without_temperature_arm64ec>
+	</GitHub>
+	<Gitee>
+		<link>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x86.zip</link>
+		<link_x64>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x64.zip</link_x64>
+		<link_arm64ec>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_arm64ec.zip</link_arm64ec>
+		<link_without_temperature>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x86_Lite.zip</link_without_temperature>
+		<link_without_temperature_x64>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x64_Lite.zip</link_without_temperature_x64>
+		<link_without_temperature_arm64ec>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_arm64ec_Lite.zip</link_without_temperature_arm64ec>
+	</Gitee>
+	<update_contents>
+		<contents_zh_cn>修正Windows11下使用第三方软件改成旧版任务栏时，任务栏窗口设置中“任务栏窗口显示在任务栏左侧”选项不可用的问题\n修正当任务栏上没有任何图标时任务栏窗口的位置不正确的问题\n修正任务栏窗口设置中点击“应用”时网速数据宽度不生效的问题\n任务栏设置中Windows11相关设置移动到单独的对话框中，增加避免与右侧小组件重叠的选项\n修正未启用硬件监控中的CPU监控时，CPU使用率获取方式改成使用性能计数器后，会改回基于CPU使用时间的问题\n修正鸣谢界面有乱码的问题\n修正当监控时间间隔设置得过小时，显示的网速可能会大于实际网速问题\n修正当内存超过100G时显示任务栏剩余内存显示不全的问题</contents_zh_cn>
+		<contents_en>Fixed the problem that when using third-party software to change to the classical taskbar in Windows 11, the option "Taskbar window appears to the left of the taskbar" in the Taskbar Window Settings is not available.\nFixed the problem that the position of the taskbar windows is not correct when there is no any icon on the taskbar.\nFixed the problem that the "Network speed data width" does not take effect when clicking "Apply" in the Taskbar Window Settings.\nWindows 11 related settings in Taskbar Windows Settings moved to the new dialog. Add an option to avoid overlapping with right Widgets.\nFixed the problem that when "CPU" in Hardware Monitoring is not enabled, the "CPU usage acquisition method" will be changed back to the "Based on CPU time" when set it to "Use the performance counter".\nFixed the problem of messy charactors in the acknowledgement dialog.\nFixed the problem that the displayed net speed may be larger than the actual net speed when the "Monitoring intervals" is set too small.\nFixed the problem that the "Memory available" in the taskbar window cannot be fully displayed when the memory exceeds 100G.</contents_en>
+		<contents_zh_tw>修正Windows11下使用第三方軟體改成舊版工作列時，工作列視窗設定中“工作列視窗顯示在工作列左側”選項不可用的問題\n修正當工作列上沒有任何圖示時工作列視窗的位置不正確的問題\n修正工作列視窗設定中點選“應用”時網速資料寬度不生效的問題\n工作列設定中Windows11相關設定移動到單獨的對話方塊中，增加避免與右側小元件重疊的選項\n修正未啟用硬體監控中的CPU監控時，CPU使用率獲取方式改成使用效能計數器後，會改回基於CPU使用時間的問題\n修正鳴謝介面有亂碼的問題\n修正當監控時間間隔設定得過小時，顯示的網速可能會大於實際網速問題\n修正當記憶體超過100G時顯示工作列剩餘記憶體顯示不全的問題</contents_zh_tw>
+	</update_contents>
+</root>
