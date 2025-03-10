@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "BaseDialog.h"
 #include "LinkStatic.h"
+#include "ListCtrlEx.h"
 
 // CPluginManagerDlg 对话框
 
@@ -18,12 +19,13 @@ public:
 #endif
 
 private:
-    CListCtrl m_list_ctrl;
+    CListCtrlEx m_list_ctrl;
     int m_item_selected{ -1 };
     CMenu m_menu;
     CLinkStatic m_plugin_download_lnk;
     CLinkStatic m_plugin_dev_guide_lnk;
     CLinkStatic m_open_plugin_dir_lnk;
+    CImageList m_plugin_icon_list;
 
 protected:
     virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
@@ -31,10 +33,21 @@ protected:
     bool IsSelectedValid();
     bool IsSelectedPluginEnable();     //选中插件是否可用
 
+    enum Column
+    {
+        COL_FILE_NAME,
+        COL_NAME,
+        COL_VERSION,
+        COL_STATUS,
+        COL_MAX
+    };
+
     DECLARE_MESSAGE_MAP()
 
     // 通过 CBaseDialog 继承
     virtual CString GetDialogName() const override;
+    virtual bool InitializeControls() override;
+
 public:
     virtual BOOL OnInitDialog();
     afx_msg void OnNMRClickList1(NMHDR* pNMHDR, LRESULT* pResult);
@@ -48,4 +61,5 @@ public:
     afx_msg void OnPluginDisable();
 protected:
     afx_msg LRESULT OnLinkClicked(WPARAM wParam, LPARAM lParam);
+    virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
 };
