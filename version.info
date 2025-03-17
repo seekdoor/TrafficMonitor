@@ -1,4 +1,4 @@
-<version>1.83</version>
-<link>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958687/download/TrafficMonitor_V1.83_x86_Lite.zip</link>
-<link_x64>https://gitee.com/zhongyang219/TrafficMonitor/attach_files/958688/download/TrafficMonitor_V1.83_x64_Lite.zip</link_x64>
-<contents>修正当已经存在一个开机自启动的任务计划时，无法设置开机自启动的问题，\n新增当已经存在TrafficMonitor进程时启动程序，弹出“程序已经在运行”对话框。\n鼠标提示中新增插件信息的显示。\n修正插件被禁用后仍然会被加载的问题。\n任务栏中的插件项目支持自由排序。\n选项设置中新增可以选择要在“网络连接列表”中显示的网络的功能。\n新增显示总网速的功能。\n新增在任务栏中显示网速占用图的功能。\n修正硬件监控中有多个名称相同的硬盘时只能显示一个硬盘的问题。\n优化任务栏窗口横向滚动图的显示效果。\n任务栏窗口右键菜单中的“显示设置”由菜单改为对话框形式。\n“选择网络连接”菜单中添加“刷新网络连接列表”命令。\n修正几处导致程序崩溃的问题。</contents>
+<version>1.85.1</version>
+<link>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x86_Lite.zip</link>
+<link_x64>https://gitee.com/zhongyang219/TrafficMonitor/releases/download/V1.85.1/TrafficMonitor_V1.85.1_x64_Lite.zip</link_x64>
+<contents>修正Windows11下使用第三方软件改成旧版任务栏时，任务栏窗口设置中“任务栏窗口显示在任务栏左侧”选项不可用的问题\n修正当任务栏上没有任何图标时任务栏窗口的位置不正确的问题\n修正任务栏窗口设置中点击“应用”时网速数据宽度不生效的问题\n任务栏设置中Windows11相关设置移动到单独的对话框中，增加避免与右侧小组件重叠的选项\n修正未启用硬件监控中的CPU监控时，CPU使用率获取方式改成使用性能计数器后，会改回基于CPU使用时间的问题\n修正鸣谢界面有乱码的问题\n修正当监控时间间隔设置得过小时，显示的网速可能会大于实际网速问题\n修正当内存超过100G时显示任务栏剩余内存显示不全的问题</contents>

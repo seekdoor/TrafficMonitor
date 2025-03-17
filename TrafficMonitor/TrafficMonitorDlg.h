@@ -22,7 +22,6 @@
 #include "AboutDlg.h"
 #include "CPUUsage.h"
 #include "HistoryTrafficFile.h"
-#include "HighResolutionTimer.h"
 
 // CTrafficMonitorDlg 对话框
 class CTrafficMonitorDlg : public CDialog
@@ -31,11 +30,16 @@ class CTrafficMonitorDlg : public CDialog
 public:
     CTrafficMonitorDlg(CWnd* pParent = NULL);   // 标准构造函数
     ~CTrafficMonitorDlg();
+    CTaskBarDlg* GetTaskbarWindow() const;
+
+    static CTrafficMonitorDlg* Instance();
 
     // 对话框数据
 #ifdef AFX_DESIGN_TIME
     enum { IDD = IDD_TRAFFICMONITOR_DIALOG };
 #endif
+
+    const CSkinFile& GetCurSkin() const { return m_skin; }
 
 protected:
     virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
@@ -56,7 +60,8 @@ protected:
     unsigned __int64 m_last_in_bytes{}; //上次已接收的字节数
     unsigned __int64 m_last_out_bytes{};    //上次已发送的字节数
 
-    CCPUUsage m_cpu_usage;
+    CCPUUsage m_cpu_usage_helper;
+    CCpuFreq m_cpu_freq_helper;
 
     bool m_first_start{ true };     //初始时为true，在定时器第一次启动后置为flase
 
@@ -89,18 +94,16 @@ protected:
     CSkinFile m_skin;
     CommonDisplayItem m_clicked_item;           //鼠标点击的项目
 
-    CFont m_font;           //字体
-
     int m_restart_cnt{ -1 };    //重新初始化次数
     unsigned int m_timer_cnt{};     //定时器触发次数（自程序启动以来的秒数）
+    unsigned int m_taskbar_timer_cnt{0}; //适用于TaskBarDlg的定时器触发次数（自程序启动以来的秒数）
     unsigned int m_monitor_time_cnt{};
     int m_zero_speed_cnt{}; //如果检测不到网速，该变量就会自加
     int m_insert_to_taskbar_cnt{};  //用来统计尝试嵌入任务栏的次数
-    int m_cannot_intsert_to_task_bar_warning{ true };   //指示是否会在无法嵌入任务栏时弹出提示框
+    int m_cannot_insert_to_task_bar_warning{ true };   //指示是否会在无法嵌入任务栏时弹出提示框
 
     static unsigned int m_WM_TASKBARCREATED;    //任务栏重启消息
 
-    vector<wstring> m_skins;    //储存皮肤文件的路径
     int m_skin_selected{};      //选择的皮肤序号
 
     SYSTEMTIME m_start_time;    //程序启动时的时间
@@ -116,15 +119,21 @@ protected:
 
     string m_connection_name_preferd{ theApp.m_cfg_data.m_connection_name };          //保存用户手动选择的网络连接名称
 
-    //CHighResolutionTimer m_timer;           // 采用多媒体定时器(也防止了界面阻塞出现的卡顿现象)
-    CCriticalSection m_critical;
-    static UINT MonitorThreadCallback(LPVOID dwUser);
-    bool m_is_monitor_thread_runing{ false };
+    void DoMonitorAcquisition();    //获取一次监控信息
+    static UINT MonitorThreadCallback(LPVOID dwUser);   //获取监控信息的线程函数
+    bool m_monitor_data_required{ false };          //线程中需要获取监控数据标志，当需要获取监控数据时置为true，获取到一次监控数据时置为false
+    bool m_is_thread_exit{ false }; //线程退出标志
+    CEvent m_threadExitEvent;       //用于通知主线程工作线程已退出
+public:
+    void ExitMonitorThread();       //停止监控线程
 
+protected:
     CString GetMouseTipsInfo();     //获取鼠标提示信息
     void SetTransparency();         //根据m_transparency的值设置窗口透明度
     void SetTransparency(int transparency);
+public:
     void SetAlwaysOnTop();          //根据m_always_on_top的值设置窗口置顶
+protected:
     void SetMousePenetrate();       //根据m_mouse_penetrate的值设置是否鼠标穿透
     POINT CalculateWindowMoveOffset(CRect rect, bool screen_changed);  //计算当窗口处于屏幕区域外时，移动到屏幕区域需要移动的位置
     void CheckWindowPos(bool screen_changed = false);          //测试窗口的位置，如窗口的位置在屏幕外，则移动窗口使其全部都在屏幕内，并返回新位置
@@ -159,7 +168,7 @@ protected:
     void ApplySettings(COptionsDlg& optionsDlg);
 
     void SetItemPosition();     //设置显示的4个项目的位置
-    void LoadSkinLayout();      //从当前皮肤获取布局数据
+    bool LoadSkinLayout();      //从当前皮肤获取布局数据
 
     void LoadBackGroundImage();
     void SetTextFont();
@@ -170,6 +179,9 @@ protected:
 
     //判断一个点在哪个显示项目的区域内，并保存到m_clicked_item
     void CheckClickedItem(CPoint point);
+
+    //应用一个皮肤
+    void ApplySkin(int skin_index);
 
 public:
     //void ApplySettings();
@@ -247,4 +259,13 @@ public:
     afx_msg void OnDisplaySettings();
     afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
     afx_msg void OnRefreshConnectionList();
+protected:
+    afx_msg LRESULT OnTabletQuerysystemgesturestatus(WPARAM wParam, LPARAM lParam);
+public:
+    afx_msg void OnPluginOptions();
+    afx_msg void OnPluginDetail();
+    afx_msg void OnPluginOptionsTaksbar();
+    afx_msg void OnPluginDetailTaksbar();
+    afx_msg UINT OnPowerBroadcast(UINT nPowerEvent, LPARAM nEventData);
+    afx_msg void OnColorizationColorChanged(DWORD dwColorizationColor, BOOL bOpacity);
 };

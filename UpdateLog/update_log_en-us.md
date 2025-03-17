@@ -1,6 +1,69 @@
-**[简体中文](./update_log.md) | [繁體中文](./update_log_zh-tw.md) | English**<br>
+**[简体中文](./update_log.md) | [繁體中文](./update_log_zh-tw.md) | English**
 
 # TrafficMonitor Update log
+## V1.85.1 (2025/02/10)
+
+* Fixed the problem that when using third-party software to change to the classical taskbar in Windows 11, the option "Taskbar window appears to the left of the taskbar" in the Taskbar Window Settings is not available.
+
+* Fixed the problem that the position of the taskbar windows is not correct when there is no any icon on the taskbar. #1913
+* Fixed the problem that the "Network speed data width" does not take effect when clicking "Apply" in the Taskbar Window Settings. #1916
+* Windows 11 related settings in Taskbar Windows Settings moved to the new dialog. Add an option to avoid overlapping with right Widgets.
+* Fixed the problem that when "CPU" in Hardware Monitoring is not enabled, the "CPU usage acquisition method" will be changed back to the "Based on CPU time" when set it to "Use the performance counter".
+* Fixed the problem of messy charactors in the acknowledgement dialog.
+* Fixed the problem that the displayed net speed may be larger than the actual net speed when the "Monitoring intervals" is set too small. #1263 #1674
+* Fixed the problem that the "Memory available" in the taskbar window cannot be fully displayed when the memory exceeds 100G. #1722
+
+## V1.85 (2025/01/21)
+
+**Feature Updates:**
+
+* Add Direct2D rendering method to the taskbar window, whitch solve the problem that sometimes the edges of fonts are jagged. #1156
+* Add the support for Intel graphics cards for graphics card monitoring function.
+* Add a plugin menu to the context menu when right-clicking on a plugin item.
+* Add the plugin icon in the plugin management dialog, add plugin command for the context menu.
+* The maximum value of the monitoring interval is adjusted to 30s.
+* Add the options for "Window offset top" and "Vertical Margin" in the Taskbar Window Settings.
+* Add the support for transparent background images in png format to the main window.
+* Add the function of automatically switching skins according to the dark / light Windows color mode. #1013
+* Add the function of displaying the resource usage graph of the plug-in items in the taskbar, and updated the corresponding plug-in interface. #1077
+* Add the display of today's total traffic in the main window and taskbar window. #1174
+* Add "Enable colorful emoji" option in the taskbar window settings (Direct2D rendering only).
+* Upper limit of temperature notification in general settings adjusted to 120 degrees. #1814
+* Add the support for Arm64EC. #1703
+* Add the ability to display CPU frequency in Lite version.
+* Add default text color to "Preset 2" and "Preset 3" in Taskbar Settings - Preset.
+
+**Issue fixed:**
+* LibreHardwareMonitorLib.dll is updated to version 0.9.4. Solve the problem that hardware monitor information of some devices can't be displayed correctly.
+* Fixed the problem that the position of the  taskbar window is incorrect for touchscreen devices after Windows 11 build 22621.
+* Fixed the problem that the position of the taskbar window is incorrect when the Widgets did not exist under Windows 11. #1582
+* Fixed the problem that the taskbar window would overlap with the system Widgets when it was displayed on the right side under Windows 11.
+* Fixed the problem of scrolling too fast when using touchpad gestures in the Options Settings dialog.
+* Fixed the problem that the display of CPU frequency in the mouse tip of the main window is incorrect.
+* Fixed the problem that the display text for the plugin items in the skin files is invalid. #1813
+* Fixed the problem that if the notification area icon is hidden, it reappears after the notification popup. #1814 #1812 #1811
+
+## V1.84.1 (2022/11/18)
+
+* Fixed the issue that the taskbar window cannot be displayed on the left side in Window 11.
+* Fixed the issue that the information in the taskbar window could not be fully displayed when the taskbar on the left or right side of the desktop.
+* Fixed the issue in Windows 11 22H2, when all the windows are closed and no icons are fixed on the taskbar, the position of the taskbar window is not correct.
+* Added the support of long press to show context menu in touchscreen devices.
+* Fixed the issue that the position of the taskbar window is not correct due to the wide search button in the latest version of Windows 11.
+* Fixed the issue that the size of "About" dialog box is not correct.
+
+## V1.84 (2022/10/05)
+
+* Fixed the problem that the position of the taskbar window is not correct in Windows 11 22H2.
+* Fixed the problem that the taskbar window overlapped with the system widgets when the taskbar window displayed on the left side in Windows 11.
+* Added display of CPU frequency.
+* Fixed the problem that the "/s" of the net speed is missing in the main window.
+* Fixed the problem that may cause insufficient string buffer when writing INI files.
+* Updated the plugin interface that allows plugin response keyboard events.
+* Fixed the problem that the taskbar window would not display properly after switching between different DPI monitors.
+* Fixed the problem where "Options" dialog box would pop up when selecting "Details" from the context menu in the "Plugin Management" dialog.
+* Update the HardwareMonitor lib to resolve the problem that the temperature of Intel 12th Gen processor cannot be obtained.
+
 ## V1.83 (2022/02/03)
 
 * Fixed the problem that when there is already a task plan of auto-run, the auto-run at start up will be failed to set.
